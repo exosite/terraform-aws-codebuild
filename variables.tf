@@ -35,7 +35,7 @@ variable "enabled" {
 
 variable "cache_enabled" {
   type        = "string"
-  default     = "true"
+  default     = "false"
   description = "If cache_enabled is true, create an S3 bucket for storing codebuild cache inside"
 }
 
@@ -53,13 +53,13 @@ variable "cache_bucket_suffix_enabled" {
 
 variable "badge_enabled" {
   type        = "string"
-  default     = "false"
+  default     = "true"
   description = "Generates a publicly-accessible URL for the projects build badge. Available as badge_url attribute when enabled."
 }
 
 variable "build_image" {
   type        = "string"
-  default     = "aws/codebuild/docker:1.12.1"
+  default     = "aws/codebuild/docker:18.09.0"
   description = "Docker image for build environment, e.g. 'aws/codebuild/docker:1.12.1' or 'aws/codebuild/eb-nodejs-6.10.0-amazonlinux-64:4.0.0'. For more info: http://docs.aws.amazon.com/codebuild/latest/userguide/build-env-ref.html"
 }
 
@@ -101,7 +101,7 @@ variable "tags" {
 
 variable "privileged_mode" {
   type        = "string"
-  default     = "false"
+  default     = "true"
   description = "(Optional) If set to true, enables running the Docker daemon inside a Docker container on the CodeBuild instance. Used when building Docker images"
 }
 
@@ -137,7 +137,7 @@ variable "image_tag" {
 
 variable "source_type" {
   type        = "string"
-  default     = "CODEPIPELINE"
+  default     = "GITHUB"
   description = "The type of repository that contains the source code to be built. Valid values for this parameter are: CODECOMMIT, CODEPIPELINE, GITHUB, GITHUB_ENTERPRISE, BITBUCKET or S3."
 }
 
@@ -149,6 +149,6 @@ variable "source_location" {
 
 variable "artifact_type" {
   type        = "string"
-  default     = "CODEPIPELINE"
+  default     = "NO_ARTIFACTS"
   description = "The build output artifact's type. Valid values for this parameter are: CODEPIPELINE, NO_ARTIFACTS or S3."
 }
