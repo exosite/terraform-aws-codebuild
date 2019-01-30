@@ -13,57 +13,6 @@ module "label" {
   tags       = "${var.tags}"
 }
 
-resource "aws_s3_bucket" "cache_bucket" {
-  count         = "${var.enabled == "true" && var.cache_enabled == "true" ? 1 : 0}"
-  bucket        = "${local.cache_bucket_name_normalised}"
-  acl           = "private"
-  force_destroy = true
-  tags          = "${module.label.tags}"
-
-  lifecycle_rule {
-    id      = "codebuildcache"
-    enabled = true
-
-    prefix = "/"
-    tags   = "${module.label.tags}"
-
-    expiration {
-      days = "${var.cache_expiration_days}"
-    }
-  }
-}
-
-resource "random_string" "bucket_prefix" {
-  length  = 12
-  number  = false
-  upper   = false
-  special = false
-  lower   = true
-}
-
-locals {
-  cache_bucket_name = "${module.label.id}${var.cache_bucket_suffix_enabled == "true" ? "-${random_string.bucket_prefix.result}" : "" }"
-
-  ## Clean up the bucket name to use only hyphens, and trim its length to 63 characters.
-  ## As per https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html
-  cache_bucket_name_normalised = "${substr(join("-", split("_", lower(local.cache_bucket_name))), 0, min(length(local.cache_bucket_name),63))}"
-
-  ## This is the magic where a map of a list of maps is generated
-  ## and used to conditionally add the cache bucket option to the
-  ## aws_codebuild_project
-  cache_def = {
-    "true" = [{
-      type     = "S3"
-      location = "${var.enabled == "true" && var.cache_enabled == "true" ? join("", aws_s3_bucket.cache_bucket.*.bucket) : "none" }"
-    }]
-
-    "false" = []
-  }
-
-  # Final Map Selected from above
-  cache = "${local.cache_def[var.cache_enabled]}"
-}
-
 resource "aws_iam_role" "default" {
   count              = "${var.enabled == "true" ? 1 : 0}"
   name               = "${module.label.id}"
@@ -94,25 +43,23 @@ resource "aws_iam_policy" "default" {
   policy = "${data.aws_iam_policy_document.permissions.json}"
 }
 
-resource "aws_iam_policy" "default_cache_bucket" {
-  count  = "${var.enabled == "true" && var.cache_enabled == "true" ? 1 : 0}"
-  name   = "${module.label.id}-cache-bucket"
-  path   = "/service-role/"
-  policy = "${data.aws_iam_policy_document.permissions_cache_bucket.json}"
-}
-
 data "aws_iam_policy_document" "permissions" {
   statement {
     sid = ""
 
     actions = [
       "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
       "ecr:CompleteLayerUpload",
+      "ecr:DescribeImages",
+      "ecr:DescribeRepositories",
       "ecr:GetAuthorizationToken",
+      "ecr:GetDownloadUrlForLayer",
       "ecr:InitiateLayerUpload",
+      "ecr:ListImages",
       "ecr:PutImage",
       "ecr:UploadLayerPart",
-      "ecs:RunTask",
+      #"ecs:RunTask",
       "iam:PassRole",
       "logs:CreateLogGroup",
       "logs:CreateLogStream",
@@ -128,34 +75,9 @@ data "aws_iam_policy_document" "permissions" {
   }
 }
 
-data "aws_iam_policy_document" "permissions_cache_bucket" {
-  count = "${var.enabled == "true" ? 1 : 0}"
-
-  statement {
-    sid = ""
-
-    actions = [
-      "s3:*",
-    ]
-
-    effect = "Allow"
-
-    resources = [
-      "${aws_s3_bucket.cache_bucket.arn}",
-      "${aws_s3_bucket.cache_bucket.arn}/*",
-    ]
-  }
-}
-
 resource "aws_iam_role_policy_attachment" "default" {
   count      = "${var.enabled == "true" ? 1 : 0}"
   policy_arn = "${aws_iam_policy.default.arn}"
-  role       = "${aws_iam_role.default.id}"
-}
-
-resource "aws_iam_role_policy_attachment" "default_cache_bucket" {
-  count      = "${var.enabled == "true" && var.cache_enabled == "true" ? 1 : 0}"
-  policy_arn = "${element(aws_iam_policy.default_cache_bucket.*.arn, count.index)}"
   role       = "${aws_iam_role.default.id}"
 }
 
@@ -169,9 +91,6 @@ resource "aws_codebuild_project" "default" {
   artifacts {
     type = "${var.artifact_type}"
   }
-
-  # The cache as a list with a map object inside.
-  cache = ["${local.cache}"]
 
   environment {
     compute_type    = "${var.build_compute_type}"
@@ -214,4 +133,9 @@ resource "aws_codebuild_project" "default" {
   }
 
   tags = "${module.label.tags}"
+}
+
+resource "aws_codebuild_webhook" "webhook" {
+  project_name = "${aws_codebuild_project.default.name}"
+  branch_filter = "development|master|production"
 }
