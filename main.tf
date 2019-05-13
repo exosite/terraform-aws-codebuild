@@ -137,5 +137,5 @@ resource "aws_codebuild_project" "default" {
 
 resource "aws_codebuild_webhook" "webhook" {
   project_name = "${aws_codebuild_project.default.name}"
-  branch_filter = "development|master|production"
+  branch_filter = "${var.webhook_branch_filter}"
 }

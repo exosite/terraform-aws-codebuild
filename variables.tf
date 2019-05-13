@@ -152,3 +152,9 @@ variable "artifact_type" {
   default     = "NO_ARTIFACTS"
   description = "The build output artifact's type. Valid values for this parameter are: CODEPIPELINE, NO_ARTIFACTS or S3."
 }
+
+variable "webhook_branch_filter" {
+  type = "string"
+  default = "master"
+  description = "branch filter for github webhook"
+}
